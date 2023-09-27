@@ -1,0 +1,111 @@
+---
+title: "SeaIce ts"
+author: "math4mads"
+date: "2023-09-07"
+categories: [julia,timeseries, stat2]
+format:
+  html:
+    code-fold: true
+image: "image.png"
+jupyter: julia-1.9
+---
+SeaIce  time series
+
+:::{.callout-note}
+   - SeaIce Time Linear Regression
+   - 使用 GLM.jl 线性回归方法
+   
+:::
+
+
+
+#### 加载软件包
+   
+     
+```{julia}
+    include("utils.jl")
+    using  RCall
+    using  GLMakie,DataFrames,Pipe,PrettyTables,DataFramesMeta,FreqTables
+    using  StatsBase,TableTransforms
+    using  GLM,AnovaGLM,HypothesisTests
+    res=(600,300)
+```
+
+
+## 1.   load data
+
+```{julia}
+    desc=Stat2Table(1406,"SeaIce","sea ice  time series",["Year", "Extent", "Area", "t"])
+    data=@pipe load_rda(desc.name)
+    @pt first(data,10)
+```
+
+
+## 2. plot  time-extend series
+
+```{julia}
+  #|label: fig-scatter
+  #|fig-cap: "Scatter Plots"
+  fig,ax,plt=scatterlines(data[:,:Year],data[:,:Extent];figure = (; resolution = res),
+  marker_style...)
+  
+```
+
+##  3.   Year-Extent  linear regression
+
+```{julia}
+  model1=lm(@formula(Extent~Year), data)
+  anova(model1)
+```
+
+## 4.   predict and plot fit line
+```{julia}    
+        xs=select(data,:Year)
+        yhat=predict(model1,)|>arr->round.(arr,digits=3)
+        lines!(ax,data[:,:Year],yhat)
+        ax.title="time-seaice-linear-reg"
+        fig
+       
+```
+
+## 5.   using t scale as predict varible
+
+```{julia}
+      model2=lm(@formula(Extent~t), data)
+```
+
+## 6.   plot t-scale-extent fitline
+```{julia}
+      fig2,ax2,plt2=scatterlines(data[:,:t],data[:,:Extent];marker_style...,figure = (; resolution = res))
+      xs2=select(data,:t)
+      yhat=predict(model2,xs2)|>arr->round.(arr,digits=3)
+      lines!(ax2,data[:,:t],yhat)
+      ax2.title="time-seaice-linear-reg"
+        fig2
+        
+```
+
+## 7.   plot t-scale-extent linreg  residuals
+```{julia}  
+      resid2=residuals(model2)|>arr->round.(arr,digits=3)
+      fig3,ax3,plt3= scatterlines(data[:,:t],resid2;marker_style...,figure = (; resolution = res))
+      hlines!(ax3,[0],linestyle=:dot, linewidth=2,color=(:red, 0.8))
+      ax3.title="t-scale-extent linreg  residuals"
+      fig3
+``` 
+
+## 8.   according to 7. residuals , we add  quadartic term
+
+```{julia}
+   model3=lm(@formula(Extent~t+t^2), data)
+```
+
+## 9.    plot  quadartic  fit  
+```{julia}
+            fig4,ax4,plt4=scatterlines(data[:,:t],data[:,:Extent];marker_style...,figure = (; resolution = res))
+            xs4=select(data,:t)
+            yhat4=predict(model3,xs4)|>arr->round.(arr,digits=3)
+            lines!(ax4,data[:,:t],yhat4)
+            ax4.title="time-seaice-quad-reg"
+            fig4
+```

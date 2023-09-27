@@ -1,0 +1,169 @@
+---
+title: "longer seasonal timeseries"
+author: "math4mads"
+date: "2023-09-07"
+categories: [julia,timeseries, stat2]
+format:
+  html:
+    code-fold: true
+    
+image: "p1421-two-model-timeseries.png"
+jupyter: julia-1.9
+---
+
+PeaceBridge2012 seasonal   time series
+
+:::{.callout-note}
+   **PeaceBridge2003** 记录了PeaceBridge 大桥的长期的通行车辆记录
+   
+   - seasonal timeseries  linear Regression
+   - 使用 GLM.jl 线性回归方法
+   
+:::
+
+#### 加载软件包
+   
+     
+```{julia}
+    include("utils.jl")
+    using  RCall
+    using  GLMakie,DataFrames,Pipe,PrettyTables,DataFramesMeta,FreqTables
+    using  StatsBase,TableTransforms
+    using  GLM,AnovaGLM,HypothesisTests
+    res=(600,300)
+```
+
+###   1.    load data
+```{julia}
+        desc=Stat2Table(1412,"PeaceBridge2003","seasonal time series",["Year", "Month", "Traffic", "t"])
+        data=@pipe load_rda(desc.name)
+        ts=tspan=data[:,:t]
+        traffic=data[:,:Traffic]
+        @pt first(data,3)
+```
+
+### 2. plot  timerseries
+   @fig-pb2003-1 :   PeaceBridge2003 series plot
+```{julia}
+#| label: fig-pb2003-1
+#| fig-cap: "PeaceBridge2003"
+ fig1,ax1,plt1=scatterlines(data[:,:t],data[:,:Traffic];marker_style...,linewidth=4,figure = (; resolution = res))
+```
+
+### 3. fit two models:  1:cosine model 2: season model
+```{julia}
+        cost(t)=cos(2pi*t/12); sint(t)=sin(2pi*t/12)
+        cosine_model=lm(@formula(Traffic~t+cost(t)+sint(t)), data)
+        season_model=lm(@formula(Traffic ~t+Month), data, contrasts = Dict(:Month => DummyCoding()))
+        mds=[cosine_model,season_model]
+```
+
+### 4. plot  fitline
+
+```{julia}
+#| label: fig-pb2003-2
+#| fig-cap: "two type lm fitting"
+        yhat1=predict(mds[1],select(data,:t))
+        yhat2=predict(mds[2],select(data,[:Month,:t]))
+        function plot_two_reg()
+            yr=unique(data[:,:Year]).|>Symbol.|>String
+            tr=Vector(1:12:length(data[:,:t]))
+            fig=Figure(resolution=(1400,400))
+            ax1=Axis(fig[1,1];xlabel="time",ylabel="traffic",title=L"Linear+Cossine")
+            ax2=Axis(fig[1,2];xlabel="time",ylabel="traffic",title=L"Linear+Seasonal Means")
+            ax1.xticks=(tr,yr)
+            ax2.xticks=(tr,yr)
+            Box(fig[1,1];color = (:orange,0.05),strokewidth=0.5)
+            Box(fig[1,2];color = (:orange,0.05),strokewidth=0.5)
+            scatterlines!(ax1,data[:,:t],data[:,:Traffic];marker_style...,linewidth=4)
+            scatterlines!(ax2,data[:,:t],data[:,:Traffic];marker_style...,linewidth=4)
+            lines!(ax1,data[:,:t],yhat1;color=:red,linestyle=:dash,linewidth=3) 
+            lines!(ax2,data[:,:t],yhat2;color=:red,linestyle=:dash,linewidth=3) 
+            fig
+
+        end
+        plot_two_reg()
+```
+
+
+### 5. plot model residuals
+```{julia}
+#| label: fig-pb2003-3
+#| fig-cap: "residuals  plot"
+        "linear-cosine  residuals"
+        lc_resid=residuals(mds[1]) 
+        "lienar-seasonalmeans residuals"
+        ls_resid=residuals(mds[2]) 
+        
+        function plot_pair_resid()
+            yr=unique(data[:,:Year]).|>Symbol.|>String
+            tr=Vector(1:12:length(data[:,:t]))
+            fig=Figure(resolution=(1400,400))
+            Box(fig[1,1];color = (:orange,0.05),strokewidth=0.2)
+            Box(fig[1,2];color = (:orange,0.05),strokewidth=0.2)
+            ax1=Axis(fig[1,1];xlabel="time",ylabel="residuals",title=L"Linear+Cossine")
+            ax2=Axis(fig[1,2];xlabel="time",ylabel="residuals",title=L"Linear+Seasonal Means")
+            
+            ax1.xticks=(tr,yr)
+            ax2.xticks=(tr,yr)
+            
+            linkyaxes!(ax1, ax2)
+            lines!(ax1,ts,lc_resid)
+            lines!(ax2,ts,ls_resid)
+            hlines!(ax1,[0],linestyle=:dot, linewidth=2,color=(:red, 0.8))
+            hlines!(ax2,[0],linestyle=:dot, linewidth=2,color=(:red, 0.8))
+            fig
+
+        end
+        plot_pair_resid()
+```
+
+### 6. report $R^2$ 和  $SE$
+```{julia}
+
+function report_r2_se()
+        yhat1=predict(mds[1],select(data,:t))
+        yhat2=predict(mds[2],select(data,[:Month,:t]))
+
+        se1=rmsd(data[:,:Traffic],Float64.(yhat1))
+        se2=rmsd(data[:,:Traffic],Float64.(yhat2))
+        r21=r2(mds[1])
+        r22=r2(mds[2])
+        c1=["Linear Model","Linear+Season Means"]
+        c2=[r21,r22].|>(d->round(d,digits=2)).|>d->"$(100*d)%"
+        c3=[se1,se2]
+        report_table=DataFrame(Model=c1,R²=c2,SE=c3)
+        
+end
+report_r2_se()
+```
+
+### 7.  lag-acf plot
+$lag$是时滞, $acf$是自相关系数
+
+```{julia}
+#| label: fig-pb2003-4
+#| fig-cap: "lag-acf plot"
+        data=traffic[1:end-1]
+        lag= traffic[2:end]
+        diff=data-lag
+        
+        acf=autocor(diff)  # diff  autocor
+        function plot_acf()
+                fig=Figure(;resolution=res)
+                ax=Axis(fig[1,1];xlabel="Lag",ylabel="ACF",title="Price Lag ACF")
+                stem!(ax,acf[2:end])
+                fig
+        end
+        plot_acf()
+```
+
+### 9. 结论
+
+:::{.callout-tip}
+    
+   通过使用不同的基函数对时间序列进行分解表示, 在PeaceBridge 2012 
+   和PeaceBridge2003数据集上都获得了很好的拟合效果, 这提示我们是否
+   还能够使用更过类型的基函数来拟合复杂时间序列?
+:::
+

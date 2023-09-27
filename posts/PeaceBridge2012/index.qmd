@@ -1,0 +1,168 @@
+---
+title: "seasonal timeseries"
+author: "math4mads"
+date: "2023-09-07"
+categories: [julia,timeseries, stat2]
+format:
+  html:
+    code-fold: true
+image: "image.png"
+jupyter: julia-1.9
+---
+PeaceBridge2012 seasonal   time series
+
+:::{.callout-note}
+   **PeaceBridge2012** 记录了PeaceBridge 大桥的通行车辆记录
+   
+   - seasonal timeseries  linear Regression
+   - 使用 GLM.jl 线性回归方法
+   
+:::
+
+#### 加载软件包
+   
+     
+```{julia}
+    include("utils.jl")
+    using  RCall
+    using  GLMakie,DataFrames,Pipe,PrettyTables,DataFramesMeta,FreqTables
+    using  StatsBase,TableTransforms
+    using  GLM,AnovaGLM,HypothesisTests
+    res=(600,300)
+```
+
+###   1.    load data
+```{julia}
+        desc=Stat2Table(1412,"PeaceBridge2012","seasonal time series",["Year", "Month", "Traffic", "t"])
+        data=@pipe load_rda(desc.name)
+        ts=tspan=data[:,:t]
+        @pt first(data,5)
+```
+
+### 2.    plot time series
+```{julia}
+  #| fig-cap: "series plot"
+  #| echo: true
+  fig1,ax1,plt1=scatterlines(data[:,:t],data[:,:Traffic];marker_style...,linewidth=4,figure = (; resolution = res))
+```
+从 series 图中可以看到时间序列有明显的周期性变化,因此在拟合时需要
+使用周期项
+
+###  3.    cos,sin  tranformtion  for  fitting
+时间变量经过周期函数变换,$S$ 由时间周期决定,如果是年就为$12$
+$$Y=\beta_0+ \beta_1cos(\frac{2\pi t}{S})+\beta_2sin(\frac{2\pi t}{S})+ε \tag{1}$$
+
+定义两个函数作为线性组合的基函数(basis function), 回归模型对于基函数仍然是线性组合
+
+$$ X_{cos}=cos(\frac{2\pi t}{S}) \tag{2.1}$$
+$$ X_{sin}=sin(\frac{2\pi t}{S}) \tag{2.2}$$
+
+线性模型变形为:
+
+
+$$Y=\beta_0+\beta_1X_{cos}+\beta_2X_{sin}+ε \tag{3}$$
+
+
+```{julia}
+ cost(t)=cos(2pi*t/12); sint(t)=sin(2pi*t/12)
+ model1=lm(@formula(Traffic~cost(t)+sint(t)), data)
+```
+
+### 4.    周期性模型 ftest   
+```{julia}
+ ftest(model1.model)
+```
+:::{.callout-note}
+  **线性回归的t检验的0假设是所有回归项的系数都为0**
+  
+  - $h_0: 模型所有系数都为0$ 
+  - $h_a: 存在系数不为零的回归项$
+   
+:::
+
+在$95\%$置信区间下, $model1$ 的$pvalue$远远小于$0.05$
+所以 拒绝 0 假设, 接受备择假设:回归模型系数不全为 0 
+
+
+### 5.    linear added cos fitting
+线性模型添加 $cosine$ 变换的拟合
+
+```{julia}
+ model2=lm(@formula(Traffic~cost(t)), data)
+ function plot_cosine_fitting(fig)
+     # just cost  model
+    yhat2=predict(model2,select(data,:t))|>arr->round.(arr,digits=3)
+    lines!(ax1,ts,yhat2;color=:blue,linestyle=:dot,linewidth=2,label="cosine variable")
+    #axislegend(ax1)
+    fig
+ end
+ plot_cosine_fitting(fig1)
+```
+>周期性拟合满足条件, 但是没有达到最高值, 需要更新模型
+
+### 6.    month season  
+   将每个月份处理为目录变量
+   ,可以表示如下:
+
+$$Y=\beta_0+\beta_1Feb+\beta_2Mar+\cdots+\beta_{11}Dec+ε  \tag{4}$$
+
+:::{.callout-note}
+  **目录变量在 GLM.jl的方法**
+```julia
+    contrasts = Dict(:Month => DummyCoding())
+```
+参见GLM文档:[`Categorical Variables`](https://juliastats.github.io/StatsModels.jl/stable/contrasts/)
+:::
+
+
+
+   
+   
+```{julia}
+ model3=lm(@formula(Traffic ~Month), data, contrasts = Dict(:Month => DummyCoding()))
+```
+:::{.callout-note}
+month1作为常数项,回归是以1月的数据作为基准, month2:-10.675 ,意思是在二月份比一月份
+少-10.675*1000车辆通行,其他月份同样处理
+:::
+
+
+### 7.    plot month season variable 
+绘制拟合曲线
+```{julia}
+  yhat3=predict(model3,select(data,:Month))|>arr->round.(arr,digits=3)
+  lines!(ax1,data[:,:t],yhat3;color=:red,linestyle=:dash,linewidth=3,label="seasonal variable") 
+  axislegend(ax1)
+  fig1
+```
+
+### 8.    plot  cost, month sesaon rediduals
+cos 变换的模型与周期性变量模型模型拟合残差图
+```{julia}
+        cost_resid=residuals(model1)
+        season_resid=residuals(model3)
+        xs4=data[:,:t]
+       function plot_pair_resid()
+          fig=Figure(resolution=(1200,300))
+          ax1=Axis(fig[1,1];xlabel="time",ylabel="cost-rediduals")
+          ax2=Axis(fig[1,2];xlabel="time",ylabel="monthseason-rediduals")
+          Box(fig[1,1];color = (:orange,0.05),strokewidth=0.5)
+          Box(fig[1,2];color = (:orange,0.05),strokewidth=0.5)
+          linkyaxes!(ax1, ax2)
+          lines!(ax1,xs4,cost_resid)
+          lines!(ax2,xs4,season_resid)
+          hlines!(ax1,[0],linestyle=:dot, linewidth=2,color=(:red, 0.8))
+          hlines!(ax2,[0],linestyle=:dot, linewidth=2,color=(:red, 0.8))
+          fig
+        end
+        plot_pair_resid()
+
+```
+
+可以看到周期性模型的残差非常小
+
+### 9.  cosine model 和 month season model $R^2$ 的比较
+
+```{julia}
+Dict(:cos_model=>r2(model1),:month_seasonal_model=>r2(model3))
+```
