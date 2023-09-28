@@ -18,6 +18,5 @@ about:
 
 About this blog
 
-Based STAT2_ Modelling with Regression and ANOVA (2019)  chapter12  with Julia Language
+Julia TimeSeries  methods  
 
-![STAT2_ Modelling with Regression and ANOVA](https://stat2.org/graphics/Stat2CoverSmall.jpg)
