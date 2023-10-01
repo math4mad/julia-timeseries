@@ -1,0 +1,111 @@
+---
+title: "coastal tide predict"
+author: "math4mads"
+date: "2023-10-01"
+categories: [julia,timeseries]
+format:
+  html:
+    code-fold: true
+image: "agp-tide-predict-odm.png"
+jupyter: julia-1.9
+---
+
+# Tide Predict
+
+:::{.callout-note}
+   - 使用 [AugmentedGaussianProcesses.jl](https://theogf.dev/AugmentedGaussianProcesses.jl/stable/)
+   - AGP  也是高斯过程方法, 在近似的时候可以选取多个初始点来探索概率空间, 适合大规模数据
+   - Tide 数据集参见[`kaggle  tide predict`](https://www.kaggle.com/datasets/arjunbhaybhang/marine-institute-tide-prediction-dataset), 数据解压缩有 400MB,所有没有全部使用,截取了名为
+   **截取了名为Aranmore** 水文站的数据 本仓库 tsData 文件夹中
+:::
+
+
+## 1. load package
+```{julia}
+    include("./utils.jl")
+    using   AugmentedGaussianProcesses
+    using   CSV,TableTransforms,Random
+    using   GLMakie
+``` 
+
+## 2. load data
+```{julia}
+    df1=load_csv("Aranmore-2017-odm")
+    df2=load_csv("Aranmore-2018-odm")
+    df3=load_csv("Aranmore-2019-odm")
+
+    selected_data=[df[1:200:end,:Water_Level_ODM] for df in [df1,df2,df3]]
+    rows=size(selected_data[1],1)
+    X=[1:rows...].|>Float64
+    y=selected_data[1]|>Vector
+
+    X_train = X[1:2:end];
+    y_train = y[1:2:end]; # We split the data equally
+    X_test = X[2:2:end];
+    y_test = y[2:2:end];
+    display(first(selected_data,10))
+```
+
+## 3. define AGP model
+```{julia}
+    σ = 0.05
+    Ms = [100,150,200,210];  #选取参考点数
+    models = Vector{AbstractGPModel}(undef, length(Ms));
+
+    function agp(X,y)
+        
+        kernel = SqExponentialKernel()+ PeriodicKernel()
+        for (index, num_inducing) in enumerate(Ms)
+            @info "Training with $(num_inducing) points"
+            m = SVGP(
+                kernel, # Kernel
+                GaussianLikelihood(σ), # Likelihood used
+                AnalyticVI(), # Inference usede to solve the problem
+                inducingpoints(KmeansAlg(num_inducing), X); # Inducing points initialized with kmeans
+                optimiser=false, # Keep kernel parameters fixed
+                Zoptimiser=false, # Keep inducing points locations fixed
+            )
+            @time train!(m, X, y, 100) # Train the model for 100 iterations
+            models[index] = m # Save the model in the array
+        end
+    end
+
+```
+
+
+## 4. define plot function 
+```{julia}
+    function plot_models(models)
+
+        fig=Figure(resolution=(2800,1200))
+
+        for (idx,model) in enumerate(models)
+            y_grid, sig_y_grid = proba_y(model, X_test)
+            local ax1=Axis(fig[idx,1],title="M=$(Ms[idx])",titlealign = :left)
+            scatter!(ax1,X_train,y_train,marker=:circle,markersize=10,color=(:lightgreen,0.2),strokewidth=1,strokecolor=:black)
+            σ_arr=sqrt.(sig_y_grid)
+            band!(ax1,X_test,y_grid-σ_arr,y_grid+σ_arr,color=(:red,0.6))
+            
+        end
+        
+        fig
+        #save("agp-tide-predict-odm-2.png",fig)
+    end
+```
+
+## 5.  evlaute model and plot results
+```{julia}
+    agp(X_train,y_train)
+    plot_models(models)
+```
+
+## 6. 结论
+
+:::{.callout-note,title="Results"}
+ 潮汐的的 timeseries里只看到周期性的趋势, 没有线性趋势
+ 由于统计数据的数据点非常多, 多以需要的探索点也很多200多
+ 点才能得到比较好的拟合曲线, 这是因为数据自身的维度就很高
+ 
+:::
+
+
