@@ -267,7 +267,7 @@ Note
 <span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
 <span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>    <span class="kw">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
-<div class="cell-output cell-output-display" data-execution_count="15">
+<div class="cell-output cell-output-display" data-execution_count="11">
 <pre><code>agp (generic function with 1 method)</code></pre>
 </div>
 </div>
@@ -294,7 +294,7 @@ Note
 <span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>        <span class="co">#save("agp-tide-predict-odm-2.png",fig)</span></span>
 <span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>    <span class="kw">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
-<div class="cell-output cell-output-display" data-execution_count="16">
+<div class="cell-output cell-output-display" data-execution_count="12">
 <pre><code>plot_models (generic function with 1 method)</code></pre>
 </div>
 </div>
@@ -314,13 +314,29 @@ Note
 [ Info: Training with 210 points</code></pre>
 </div>
 <div class="cell-output cell-output-stdout">
-<pre><code>  3.823105 seconds (5.97 M allocations: 529.096 MiB, 6.16% gc time, 96.19% compilation time)
-  0.194146 seconds (124.53 k allocations: 268.146 MiB, 13.12% gc time)
-  0.328468 seconds (181.33 k allocations: 435.561 MiB, 8.53% gc time)
-  0.341053 seconds (193.89 k allocations: 473.747 MiB, 7.59% gc time)</code></pre>
+<pre><code>  0.113034 seconds (77.73 k allocations: 139.970 MiB, 20.12% gc time)
+  0.202329 seconds (124.53 k allocations: 268.146 MiB, 8.24% gc time)
+  0.351548 seconds (181.33 k allocations: 435.561 MiB, 8.37% gc time)
+  0.349434 seconds (193.89 k allocations: 473.747 MiB, 9.18% gc time)</code></pre>
 </div>
-<div class="cell-output cell-output-display" data-execution_count="17">
+<div class="cell-output cell-output-display" data-execution_count="13">
 <p><img src="index_files/figure-html/cell-6-output-3.png" class="img-fluid"></p>
+</div>
+</div>
+</section>
+<section id="结论" class="level2">
+<h2 class="anchored" data-anchor-id="结论">6. 结论</h2>
+<div class="callout callout-style-default callout-note callout-titled" title="Results">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Results
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>潮汐的的 timeseries里只看到周期性的趋势, 没有线性趋势 由于统计数据的数据点非常多, 多以需要的探索点也很多200多 点才能得到比较好的拟合曲线, 这是因为数据自身的维度就很高</p>
 </div>
 </div>
 

@@ -101,11 +101,10 @@ jupyter: julia-1.9
 
 ## 6. 结论
 
-:::{.callout-note,title="Results"}
+:::{.callout-note title="Results"}
  潮汐的的 timeseries里只看到周期性的趋势, 没有线性趋势
  由于统计数据的数据点非常多, 多以需要的探索点也很多200多
  点才能得到比较好的拟合曲线, 这是因为数据自身的维度就很高
- 
 :::
 
 
